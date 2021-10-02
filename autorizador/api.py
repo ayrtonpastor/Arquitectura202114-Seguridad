@@ -17,7 +17,7 @@ class AuthResource(Resource):
     def post(self):
         #obtener Id_usuario, tipo_usuario
         access_token = create_access_token(identity={
-            "tipo_usuario" : "medico",
+            "tipo_usuario" : "administrativo",
             "id_usuario" : 321
         })
         return jsonify(access_token=access_token)

@@ -1,16 +1,15 @@
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from flask_marshmallow import Marshmallow
+from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from flask_restful import Api, Resource
 from flask_jwt_extended import JWTManager
 from flask_jwt_extended import get_jwt_identity
 from flask_jwt_extended import jwt_required
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////mnt/usarios.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////mnt/pacientes.db'
 db = SQLAlchemy(app)
 db.create_all()
-ma = Marshmallow(app)
 app.config["JWT_ALGORITHM"] = "RS256"
 with open("./public.pem","r") as private_key:
     app.config["JWT_PUBLIC_KEY"] = private_key.read()
@@ -20,44 +19,53 @@ jwt = JWTManager(app)
 api = Api(app)
 
 
-class User(db.Model):
+class Paciente(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(50), unique=True)
+    nombres = db.Column(db.String(50))
+    apellidos = db.Column(db.String(50))
+    celular = db.Column(db.String(50))
+    tipo_sangre = db.Column(db.String(50))
+    email = db.Column(db.String(50))
 
 
-
-class UserSchema(ma.SQLAlchemyAutoSchema):
+class PacienteSchema(SQLAlchemyAutoSchema):
     class Meta:
-        fields = ("id", "username")
+        model = Paciente
+        load_instance = True
 
 
-user_schema = UserSchema()
-users_schema = UserSchema(many=True)
+paciente_schema = PacienteSchema()
 
 
-class UserListResource(Resource):
+class PacienteListResource(Resource):
     @jwt_required()
     def get(self):
         identity = get_jwt_identity()
-        return 'Authorized'
+        response = []
+        for paciente in Paciente.query.all():
+            response.append(paciente_schema.dump(paciente))
+        return jsonify(response)
 
     @jwt_required()
     def post(self):
         identity = get_jwt_identity()
-        print(identity)
+        nuevo_paciente = Paciente(nombres=request.json["nombres"], apellidos=request.json["apellidos"], 
+                                  celular=request.json["celular"], tipo_sangre=request.json["tipo_sangre"], email=request.json["email"])
+        db.session.add(nuevo_paciente)
+        db.session.commit()
+        return jsonify(paciente_schema.dump(nuevo_paciente))
 
-        return "Modificacion de paciente completada"
 
-
-class UserResource(Resource):
+class PacienteResource(Resource):
     @jwt_required()
-    def get(self, user_id):
-        return 'Authorized'
+    def get(self, paciente_id):
+        identity = get_jwt_identity()
+        paciente = Paciente.query.get_or_404(paciente_id)
+        return jsonify(paciente_schema.dump(paciente))
 
 
-
-api.add_resource(UserListResource, '/users')
-api.add_resource(UserResource, '/users/<int:user_id>')
+api.add_resource(PacienteListResource, '/pacientes')
+api.add_resource(PacienteResource, '/paciente/<int:paciente_id>')
 
 
 if __name__ == '__main__':
