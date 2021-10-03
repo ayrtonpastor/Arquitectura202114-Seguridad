@@ -1,4 +1,6 @@
 Flask
 Flask-RESTful
+Flask-SQLAlchemy
+SQLAlchemy
 flask-jwt-extended
 pyopenssl
