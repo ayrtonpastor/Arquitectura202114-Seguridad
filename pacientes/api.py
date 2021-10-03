@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
+from flask_marshmallow import Marshmallow
 from flask_restful import Api, Resource
 from flask_jwt_extended import JWTManager
 from flask_jwt_extended import get_jwt_identity
@@ -8,8 +8,9 @@ from flask_jwt_extended import jwt_required
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////mnt/pacientes.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
-db.create_all()
+ma = Marshmallow(app)
 app.config["JWT_ALGORITHM"] = "RS256"
 with open("./public.pem","r") as private_key:
     app.config["JWT_PUBLIC_KEY"] = private_key.read()
@@ -28,23 +29,20 @@ class Paciente(db.Model):
     email = db.Column(db.String(50))
 
 
-class PacienteSchema(SQLAlchemyAutoSchema):
+class PacienteSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
-        model = Paciente
-        load_instance = True
+        fields = ("id", "nombres", "apellidos", "celular", "tipo_sangre", "email")
 
 
 paciente_schema = PacienteSchema()
-
+pacientes_schema = PacienteSchema(many=True)
 
 class PacienteListResource(Resource):
     @jwt_required()
     def get(self):
         identity = get_jwt_identity()
-        response = []
-        for paciente in Paciente.query.all():
-            response.append(paciente_schema.dump(paciente))
-        return jsonify(response)
+        pacientes =  Paciente.query.all()
+        return pacientes_schema.dump(pacientes)
 
     @jwt_required()
     def post(self):
