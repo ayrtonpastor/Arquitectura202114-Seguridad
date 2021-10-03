@@ -1,3 +1,4 @@
+from os import error
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
@@ -41,8 +42,12 @@ class PacienteListResource(Resource):
     @jwt_required()
     def get(self):
         identity = get_jwt_identity()
-        pacientes =  Paciente.query.all()
-        return pacientes_schema.dump(pacientes)
+        permiso = identity.get("tipo_usuario")
+        if permiso == 'administrativo':
+            pacientes =  Paciente.query.all()
+            return pacientes_schema.dump(pacientes)
+        else:
+            return 'Permisos Denegados',404
 
     @jwt_required()
     def post(self):
