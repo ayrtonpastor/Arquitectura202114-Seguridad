@@ -1,4 +1,5 @@
-from flask import Flask, request
+from os import error
+from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
 from flask_restful import Api, Resource
@@ -7,9 +8,9 @@ from flask_jwt_extended import get_jwt_identity
 from flask_jwt_extended import jwt_required
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////mnt/usarios.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////mnt/pacientes.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
-db.create_all()
 ma = Marshmallow(app)
 app.config["JWT_ALGORITHM"] = "RS256"
 with open("./public.pem","r") as private_key:
@@ -20,45 +21,64 @@ jwt = JWTManager(app)
 api = Api(app)
 
 
-class User(db.Model):
+class Paciente(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(50), unique=True)
+    nombres = db.Column(db.String(50))
+    apellidos = db.Column(db.String(50))
+    celular = db.Column(db.String(50))
+    tipo_sangre = db.Column(db.String(50))
+    email = db.Column(db.String(50))
 
 
-
-class UserSchema(ma.SQLAlchemyAutoSchema):
+class PacienteSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
-        fields = ("id", "username")
+        fields = ("id", "nombres", "apellidos", "celular", "tipo_sangre", "email")
 
 
-user_schema = UserSchema()
-users_schema = UserSchema(many=True)
+paciente_schema = PacienteSchema()
+pacientes_schema = PacienteSchema(many=True)
 
-
-class UserListResource(Resource):
+class PacienteListResource(Resource):
     @jwt_required()
     def get(self):
         identity = get_jwt_identity()
-        return 'Authorized'
+        permiso = identity.get("tipo_usuario")
+        if permiso == 'administrativo':
+            pacientes =  Paciente.query.all()
+            return pacientes_schema.dump(pacientes)
+        else:
+            return 'Permisos Denegados',404
 
     @jwt_required()
     def post(self):
         identity = get_jwt_identity()
-        print(identity)
+        permiso = identity.get("tipo_usuario")
+        if permiso == 'administrativo':
+            nuevo_paciente = Paciente(nombres=request.json["nombres"], apellidos=request.json["apellidos"], 
+                                    celular=request.json["celular"], tipo_sangre=request.json["tipo_sangre"], email=request.json["email"])
+            db.session.add(nuevo_paciente)
+            db.session.commit()
+            return jsonify(paciente_schema.dump(nuevo_paciente))
+        else:
+            return 'Permisos Denegados',404
 
-        return "Modificacion de paciente completada"
-
-
-class UserResource(Resource):
+class PacienteResource(Resource):
     @jwt_required()
-    def get(self, user_id):
-        return 'Authorized'
+    def get(self, paciente_id):
+        identity = get_jwt_identity()
+        permiso = identity.get("tipo_usuario")
+        if permiso == 'administrativo':
+            paciente = Paciente.query.get_or_404(paciente_id)
+            return paciente_schema.dump(paciente)
+        else:
+            return 'Permisos Denegados',404
 
 
-
-api.add_resource(UserListResource, '/users')
-api.add_resource(UserResource, '/users/<int:user_id>')
+api.add_resource(PacienteListResource, '/pacientes')
+api.add_resource(PacienteResource, '/pacientes/<int:paciente_id>')
 
 
 if __name__ == '__main__':
+    db.drop_all()
+    db.create_all()
     app.run(debug=True, host='0.0.0.0', ssl_context='adhoc')
