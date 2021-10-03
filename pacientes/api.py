@@ -75,8 +75,10 @@ class PacienteResource(Resource):
 
 
 api.add_resource(PacienteListResource, '/pacientes')
-api.add_resource(PacienteResource, '/paciente/<int:paciente_id>')
+api.add_resource(PacienteResource, '/pacientes/<int:paciente_id>')
 
 
 if __name__ == '__main__':
+    db.drop_all()
+    db.create_all()
     app.run(debug=True, host='0.0.0.0', ssl_context='adhoc')
