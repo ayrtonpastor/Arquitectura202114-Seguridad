@@ -52,19 +52,26 @@ class PacienteListResource(Resource):
     @jwt_required()
     def post(self):
         identity = get_jwt_identity()
-        nuevo_paciente = Paciente(nombres=request.json["nombres"], apellidos=request.json["apellidos"], 
-                                  celular=request.json["celular"], tipo_sangre=request.json["tipo_sangre"], email=request.json["email"])
-        db.session.add(nuevo_paciente)
-        db.session.commit()
-        return jsonify(paciente_schema.dump(nuevo_paciente))
-
+        permiso = identity.get("tipo_usuario")
+        if permiso == 'administrativo':
+            nuevo_paciente = Paciente(nombres=request.json["nombres"], apellidos=request.json["apellidos"], 
+                                    celular=request.json["celular"], tipo_sangre=request.json["tipo_sangre"], email=request.json["email"])
+            db.session.add(nuevo_paciente)
+            db.session.commit()
+            return jsonify(paciente_schema.dump(nuevo_paciente))
+        else:
+            return 'Permisos Denegados',404
 
 class PacienteResource(Resource):
     @jwt_required()
     def get(self, paciente_id):
         identity = get_jwt_identity()
-        paciente = Paciente.query.get_or_404(paciente_id)
-        return jsonify(paciente_schema.dump(paciente))
+        permiso = identity.get("tipo_usuario")
+        if permiso == 'administrativo':
+            paciente = Paciente.query.get_or_404(paciente_id)
+            return paciente_schema.dump(paciente)
+        else:
+            return 'Permisos Denegados',404
 
 
 api.add_resource(PacienteListResource, '/pacientes')
